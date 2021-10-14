@@ -59,6 +59,9 @@ static struct mutex ext4_li_mtx;
 static int ext4_mballoc_ready;
 static struct ratelimit_state ext4_mount_msg_ratelimit;
 
+#ifdef CONFIG_EXT4_FS_DYN_BARRIER
+extern int jbd2_bar;
+#endif
 static int ext4_load_journal(struct super_block *, struct ext4_super_block *,
 			     unsigned long journal_devnum);
 static int ext4_show_options(struct seq_file *seq, struct dentry *root);
@@ -3410,8 +3413,10 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	if (def_mount_opts & EXT4_DEFM_DISCARD)
 		set_opt(sb, DISCARD);
 
+#ifdef CONFIG_EXT4_ASYNC_FSYNC_MODE
 	/* enable async_fsync by default */
 	set_opt(sb, ASYNC_FSYNC);
+#endif
 
 	sbi->s_resuid = make_kuid(&init_user_ns, le16_to_cpu(es->s_def_resuid));
 	sbi->s_resgid = make_kgid(&init_user_ns, le16_to_cpu(es->s_def_resgid));
@@ -4565,7 +4570,11 @@ static int ext4_commit_super(struct super_block *sb, int sync)
 	mark_buffer_dirty(sbh);
 	if (sync) {
 		error = __sync_dirty_buffer(sbh,
+#ifdef CONFIG_EXT4_FS_DYN_BARRIER
+			(test_opt(sb, BARRIER) && jbd2_bar) ? WRITE_FUA : WRITE_SYNC);
+#else
 			test_opt(sb, BARRIER) ? WRITE_FUA : WRITE_SYNC);
+#endif
 		if (error)
 			return error;
 
@@ -4694,6 +4703,12 @@ static int ext4_sync_fs(struct super_block *sb, int wait)
 		}
 	} else if (wait && test_opt(sb, BARRIER))
 		needs_barrier = true;
+
+#ifdef CONFIG_EXT4_FS_DYN_BARRIER
+	if (!jbd2_bar)
+		needs_barrier = false;
+#endif
+
 	if (needs_barrier) {
 		int err;
 		err = blkdev_issue_flush(sb->s_bdev, GFP_KERNEL, NULL);

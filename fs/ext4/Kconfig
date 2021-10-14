@@ -128,6 +128,20 @@ config EXT4_FS_ICE_ENCRYPTION
 	depends on EXT4_FS_ENCRYPTION
 	depends on PFK
 
+config EXT4_ASYNC_FSYNC_MODE
+	bool "Ext4 Async_fsync"
+	default n
+	depends on EXT4_FS
+	help
+	  Submit jbd2 logs async mode.
+
+config EXT4_FS_DYN_BARRIER
+	bool "Ext4 Dynamic Barrier"
+	default n
+	depends on EXT4_FS
+	help
+	  Support switch on/off of ext4 barrier.
+
 config EXT4_DEBUG
 	bool "EXT4 debugging support"
 	depends on EXT4_FS

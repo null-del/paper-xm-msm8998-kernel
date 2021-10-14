@@ -101,6 +101,10 @@ EXPORT_SYMBOL(jbd2_inode_cache);
 static void __journal_abort_soft (journal_t *journal, int errno);
 static int jbd2_journal_create_slab(size_t slab_size);
 
+#ifdef CONFIG_EXT4_FS_DYN_BARRIER
+int jbd2_bar = 1;
+#endif
+
 #ifdef CONFIG_JBD2_DEBUG
 void __jbd2_debug(int level, const char *file, const char *func,
 		  unsigned int line, const char *fmt, ...)
@@ -650,7 +654,11 @@ int jbd2_trans_will_send_data_barrier(journal_t *journal, tid_t tid)
 	int ret = 0;
 	transaction_t *commit_trans;
 
+#ifdef CONFIG_EXT4_FS_DYN_BARRIER
+	if (!(journal->j_flags & JBD2_BARRIER) || !jbd2_bar)
+#else
 	if (!(journal->j_flags & JBD2_BARRIER))
+#endif
 		return 0;
 	read_lock(&journal->j_state_lock);
 	/* Transaction already committed? */
@@ -1345,7 +1353,11 @@ static int jbd2_write_superblock(journal_t *journal, int write_op)
 	int ret;
 
 	trace_jbd2_write_superblock(journal, write_op);
+#ifdef CONFIG_EXT4_FS_DYN_BARRIER
+	if (!(journal->j_flags & JBD2_BARRIER) || !jbd2_bar)
+#else
 	if (!(journal->j_flags & JBD2_BARRIER))
+#endif
 		write_op &= ~(REQ_FUA | REQ_FLUSH);
 	lock_buffer(bh);
 	if (buffer_write_io_error(bh)) {
